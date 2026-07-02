@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Поддержка Quiz</title>
+<style>
+  :root {
+    --primary: #0A84FF;
+    --primary-dark: #0060CC;
+    --bg: #F2F2F7;
+    --surface: #FFFFFF;
+    --text: #1C1C1E;
+    --text2: #636366;
+    --divider: #E5E5EA;
+    --green: #30D158;
+    --red: #FF3B30;
+    --gold: #FF9F0A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+  }
+  button { cursor: pointer; font-family: inherit; }
+  input, textarea { font-family: inherit; }
+
+  /* ===== Экран входа ===== */
+  #loginScreen {
+    height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #0A84FF 0%, #0060CC 100%);
+  }
+  .login-card {
+    background: var(--surface); border-radius: 20px; padding: 36px 32px;
+    width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    text-align: center; margin: 16px;
+  }
+  .login-card .logo { font-size: 48px; }
+  .login-card h1 { font-size: 22px; margin: 10px 0 4px; }
+  .login-card p { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+  .login-card input {
+    width: 100%; padding: 13px 14px; margin-bottom: 12px;
+    border: 1px solid var(--divider); border-radius: 12px;
+    font-size: 15px; background: var(--bg); outline: none;
+  }
+  .login-card input:focus { border-color: var(--primary); background: #fff; }
+  .login-card button {
+    width: 100%; padding: 13px; border: none; border-radius: 12px;
+    background: var(--primary); color: #fff; font-size: 16px; font-weight: 600;
+  }
+  .login-card button:hover { background: var(--primary-dark); }
+  .login-card button:disabled { opacity: .6; cursor: default; }
+  .login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+  /* ===== Основной экран ===== */
+  #appScreen { display: none; height: 100vh; flex-direction: column; }
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--divider);
+    padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .topbar .title { font-size: 17px; font-weight: 700; flex: 1; }
+  .topbar .operator { font-size: 13px; color: var(--text2); }
+  .topbar .logout {
+    background: var(--bg); border: 1px solid var(--divider); border-radius: 10px;
+    padding: 7px 14px; font-size: 13px; color: var(--red); font-weight: 600;
+  }
+
+  .layout { flex: 1; display: flex; min-height: 0; }
+
+  /* ===== Список чатов ===== */
+  .sidebar {
+    width: 340px; background: var(--surface); border-right: 1px solid var(--divider);
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .sidebar .search { padding: 12px 12px 8px; }
+  .sidebar .search input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--divider);
+    border-radius: 10px; font-size: 14px; background: var(--bg); outline: none;
+  }
+  .filters { display: flex; gap: 6px; padding: 0 12px 10px; }
+  .filters button {
+    flex: 1; padding: 7px 0; border: none; border-radius: 9px;
+    background: var(--bg); color: var(--text2); font-size: 13px; font-weight: 600;
+  }
+  .filters button.active { background: var(--primary); color: #fff; }
+  .chat-list { flex: 1; overflow-y: auto; }
+  .chat-item {
+    padding: 12px 14px; border-bottom: 1px solid var(--divider);
+    cursor: pointer; display: flex; gap: 10px; align-items: flex-start;
+  }
+  .chat-item:hover { background: #F7F9FC; }
+  .chat-item.selected { background: #E8F2FF; }
+  .chat-item .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--primary);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; flex-shrink: 0;
+  }
+  .chat-item .avatar.closed { background: #AEAEB2; }
+  .chat-item .info { flex: 1; min-width: 0; }
+  .chat-item .row1 { display: flex; justify-content: space-between; gap: 8px; }
+  .chat-item .name {
+    font-size: 14px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-item .time { font-size: 11px; color: var(--text2); flex-shrink: 0; }
+  .chat-item .last {
+    font-size: 13px; color: var(--text2); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; margin-top: 3px;
+  }
+  .chat-item .badge {
+    background: var(--red); color: #fff; font-size: 11px; font-weight: 700;
+    border-radius: 10px; padding: 2px 7px; margin-top: 3px; display: inline-block;
+  }
+  .empty-list { text-align: center; color: var(--text2); font-size: 14px; padding: 40px 20px; }
+
+  /* ===== Окно чата ===== */
+  .chat-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chat-header {
+    background: var(--surface); border-bottom: 1px solid var(--divider);
+    padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .chat-header .info { flex: 1; min-width: 0; }
+  .chat-header .name { font-size: 16px; font-weight: 700; }
+  .chat-header .meta { font-size: 12px; color: var(--text2); margin-top: 2px; word-break: break-all; }
+  .status-pill {
+    font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; flex-shrink: 0;
+  }
+  .status-pill.open { background: #E4F8EC; color: #1E9E4C; }
+  .status-pill.closed { background: #F2F2F7; color: var(--text2); }
+  .btn-close-chat {
+    border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px;
+    font-weight: 600; flex-shrink: 0; background: var(--red); color: #fff;
+  }
+  .btn-close-chat.reopen { background: var(--green); }
+
+  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { max-width: 65%; padding: 10px 14px; border-radius: 16px; font-size: 14px;
+    line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+  .msg .t { font-size: 10px; margin-top: 4px; text-align: right; opacity: .7; }
+  .msg.user { align-self: flex-start; background: var(--surface);
+    border: 1px solid var(--divider); border-bottom-left-radius: 4px; }
+  .msg.admin { align-self: flex-end; background: var(--primary); color: #fff;
+    border-bottom-right-radius: 4px; }
+  .day-sep { text-align: center; font-size: 11px; color: var(--text2); margin: 10px 0 2px; }
+
+  .composer {
+    background: var(--surface); border-top: 1px solid var(--divider);
+    padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;
+  }
+  .composer textarea {
+    flex: 1; border: 1px solid var(--divider); border-radius: 12px;
+    padding: 11px 14px; font-size: 14px; resize: none; outline: none;
+    background: var(--bg); max-height: 120px; min-height: 44px;
+  }
+  .composer textarea:focus { border-color: var(--primary); background: #fff; }
+  .composer button {
+    width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: var(--primary); color: #fff; font-size: 18px; flex-shrink: 0;
+  }
+  .composer button:hover { background: var(--primary-dark); }
+
+  .placeholder {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; color: var(--text2); gap: 10px;
+  }
+  .placeholder .big { font-size: 52px; }
+
+  #noAccess {
+    display: none; height: 100vh; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; text-align: center; padding: 20px;
+  }
+
+  @media (max-width: 720px) {
+    .sidebar { width: 100%; }
+    .chat-pane { display: none; }
+    .layout.chat-open .sidebar { display: none; }
+    .layout.chat-open .chat-pane { display: flex; }
+    .msg { max-width: 85%; }
+    #btnBackMobile { display: inline-block !important; }
+  }
+  #btnBackMobile {
+    display: none; border: none; background: var(--bg); border-radius: 10px;
+    padding: 8px 12px; font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН ВХОДА -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="logo">🎧</div>
+    <h1>Панель поддержки</h1>
+    <p>Quiz — вход для операторов</p>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+    <button id="btnLogin">Войти</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- НЕТ ДОСТУПА -->
+<div id="noAccess">
+  <div style="font-size:52px">🚫</div>
+  <h2>Нет доступа</h2>
+  <p style="color:var(--text2);max-width:420px">
+    Ваш аккаунт не в списке операторов. Попросите администратора добавить ваш UID
+    в раздел <b>admins</b> базы данных.
+  </p>
+  <p style="font-size:12px;color:var(--text2)">Ваш UID: <code id="myUid"></code></p>
+  <button class="logout" style="border:1px solid var(--divider);background:#fff;border-radius:10px;padding:9px 18px;color:var(--red);font-weight:600" onclick="firebase.auth().signOut()">Выйти</button>
+</div>
+
+<!-- ОСНОВНОЙ ЭКРАН -->
+<div id="appScreen">
+  <div class="topbar">
+    <span style="font-size:22px">🎧</span>
+    <span class="title">Поддержка Quiz</span>
+    <span class="operator" id="operatorEmail"></span>
+    <button class="logout" id="btnLogout">Выйти</button>
+  </div>
+  <div class="layout" id="layout">
+    <div class="sidebar">
+      <div class="search">
+        <input type="text" id="searchInput" placeholder="🔍 Поиск по имени или email…">
+      </div>
+      <div class="filters">
+        <button data-filter="open" class="active">Открытые</button>
+        <button data-filter="closed">Закрытые</button>
+        <button data-filter="all">Все</button>
+      </div>
+      <div class="chat-list" id="chatList">
+        <div class="empty-list">Загрузка…</div>
+      </div>
+    </div>
+    <div class="chat-pane" id="chatPane">
+      <div class="placeholder" id="chatPlaceholder">
+        <div class="big">💬</div>
+        <div>Выберите чат слева</div>
+      </div>
+      <div class="chat-header" id="chatHeader" style="display:none">
+        <button id="btnBackMobile">←</button>
+        <div class="info">
+          <div class="name" id="chName"></div>
+          <div class="meta" id="chMeta"></div>
+        </div>
+        <span class="status-pill open" id="chStatus">открыт</span>
+        <button class="btn-close-chat" id="btnToggleStatus">Закрыть диалог</button>
+      </div>
+      <div class="messages" id="messages" style="display:none"></div>
+      <div class="composer" id="composer" style="display:none">
+        <textarea id="msgInput" placeholder="Напишите ответ…" rows="1" maxlength="1000"></textarea>
+        <button id="btnSend" title="Отправить">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCKdLm0OWTiwBJXhmfFss7Kdrve8PmR1XU",
+  authDomain: "quiz-d8dbd.firebaseapp.com",
+  databaseURL: "https://quiz-d8dbd-default-rtdb.firebaseio.com",
+  projectId: "quiz-d8dbd",
+});
+const auth = firebase.auth();
+const rtdb = firebase.database();
+
+const $ = (id) => document.getElementById(id);
+
+let chats = [];               // [{uid, info}]
+let currentFilter = "open";
+let selectedUid = null;
+let chatsRef = null;
+let messagesRef = null;
+let prevTotalUnread = null;
+
+// ================= ВХОД =================
+$("btnLogin").onclick = login;
+$("loginPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+async function login() {
+  const email = $("loginEmail").value.trim();
+  const pass = $("loginPassword").value;
+  if (!email || !pass) { $("loginError").textContent = "Введите email и пароль"; return; }
+  $("btnLogin").disabled = true;
+  $("loginError").textContent = "";
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    $("loginError").textContent = "Неверный email или пароль";
+  }
+  $("btnLogin").disabled = false;
+}
+
+$("btnLogout").onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    showScreen("login");
+    detachAll();
+    return;
+  }
+  // Проверяем, что этот аккаунт — оператор
+  try {
+    const snap = await rtdb.ref("admins/" + user.uid).once("value");
+    if (snap.val() !== true) {
+      $("myUid").textContent = user.uid;
+      showScreen("noAccess");
+      return;
+    }
+  } catch (e) {
+    $("myUid").textContent = user.uid;
+    showScreen("noAccess");
+    return;
+  }
+  $("operatorEmail").textContent = user.email || "";
+  showScreen("app");
+  attachChats();
+});
+
+function showScreen(name) {
+  $("loginScreen").style.display = name === "login" ? "flex" : "none";
+  $("noAccess").style.display = name === "noAccess" ? "flex" : "none";
+  $("appScreen").style.display = name === "app" ? "flex" : "none";
+}
+
+function detachAll() {
+  if (chatsRef) { chatsRef.off(); chatsRef = null; }
+  if (messagesRef) { messagesRef.off(); messagesRef = null; }
+  selectedUid = null;
+  chats = [];
+  prevTotalUnread = null;
+}
+
+// ================= СПИСОК ЧАТОВ =================
+function attachChats() {
+  chatsRef = rtdb.ref("supportChats").orderByChild("info/lastTimestamp").limitToLast(300);
+  chatsRef.on("value", (snap) => {
+    chats = [];
+    snap.forEach((child) => {
+      const info = (child.val() || {}).info || {};
+      chats.push({ uid: child.key, info });
+    });
+    chats.sort((a, b) => (b.info.lastTimestamp || 0) - (a.info.lastTimestamp || 0));
+    renderChatList();
+    updateUnreadTitle();
+    if (selectedUid) renderChatHeader();
+  });
+}
+
+document.querySelectorAll(".filters button").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".filters button").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentFilter = btn.dataset.filter;
+    renderChatList();
+  };
+});
+$("searchInput").oninput = renderChatList;
+
+function chatMatchesFilter(c) {
+  const status = c.info.status || "open";
+  if (currentFilter === "open" && status !== "open") return false;
+  if (currentFilter === "closed" && status !== "closed") return false;
+  const q = $("searchInput").value.trim().toLowerCase();
+  if (q) {
+    const hay = ("#" + (c.info.chatNumber || "") + " " + (c.info.userName || "") + " " +
+      (c.info.userEmail || "") + " " + c.uid).toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderChatList() {
+  const list = $("chatList");
+  list.innerHTML = "";
+  const visible = chats.filter(chatMatchesFilter);
+  if (visible.length === 0) {
+    list.innerHTML = '<div class="empty-list">Обращений нет 🎉</div>';
+    return;
+  }
+  for (const c of visible) {
+    const info = c.info;
+    const status = info.status || "open";
+    const unread = info.unreadByAdmin || 0;
+    const name = info.userName || "Без имени";
+
+    const item = document.createElement("div");
+    item.className = "chat-item" + (c.uid === selectedUid ? " selected" : "");
+
+    const avatar = document.createElement("div");
+    avatar.className = "avatar" + (status === "closed" ? " closed" : "");
+    avatar.textContent = (name[0] || "?").toUpperCase();
+
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "info";
+
+    const row1 = document.createElement("div");
+    row1.className = "row1";
+    const nameEl = document.createElement("div");
+    nameEl.className = "name";
+    nameEl.textContent = (info.chatNumber ? "#" + info.chatNumber + " · " : "") + name;
+    const timeEl = document.createElement("div");
+    timeEl.className = "time";
+    timeEl.textContent = formatTime(info.lastTimestamp);
+    row1.append(nameEl, timeEl);
+
+    const lastEl = document.createElement("div");
+    lastEl.className = "last";
+    lastEl.textContent = (info.lastSender === "admin" ? "Вы: " : "") + (info.lastMessage || "");
+
+    infoDiv.append(row1, lastEl);
+    if (unread > 0) {
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = unread;
+      infoDiv.append(badge);
+    }
+
+    item.append(avatar, infoDiv);
+    item.onclick = () => selectChat(c.uid);
+    list.append(item);
+  }
+}
+
+function updateUnreadTitle() {
+  const total = chats.reduce((sum, c) => sum + (c.info.unreadByAdmin || 0), 0);
+  document.title = (total > 0 ? `(${total}) ` : "") + "Поддержка Quiz";
+  if (prevTotalUnread !== null && total > prevTotalUnread) beep();
+  prevTotalUnread = total;
+}
+
+// Короткий звук при новом сообщении
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+    osc.start(); osc.stop(ctx.currentTime + 0.25);
+  } catch (e) {}
+}
+
+// ================= ОКНО ЧАТА =================
+function selectChat(uid) {
+  selectedUid = uid;
+  $("layout").classList.add("chat-open");
+  $("chatPlaceholder").style.display = "none";
+  $("chatHeader").style.display = "flex";
+  $("messages").style.display = "flex";
+  $("composer").style.display = "flex";
+  renderChatList();
+  renderChatHeader();
+  markRead(uid);
+
+  if (messagesRef) messagesRef.off();
+  messagesRef = rtdb.ref(`supportChats/${uid}/messages`).limitToLast(500);
+  messagesRef.on("value", (snap) => {
+    if (uid !== selectedUid) return;
+    const box = $("messages");
+    box.innerHTML = "";
+    let lastDay = "";
+    snap.forEach((child) => {
+      const m = child.val() || {};
+      const day = formatDay(m.timestamp);
+      if (day && day !== lastDay) {
+        lastDay = day;
+        const sep = document.createElement("div");
+        sep.className = "day-sep";
+        sep.textContent = day;
+        box.append(sep);
+      }
+      const div = document.createElement("div");
+      div.className = "msg " + (m.sender === "admin" ? "admin" : "user");
+      const textEl = document.createElement("div");
+      textEl.textContent = m.text || "";
+      const t = document.createElement("div");
+      t.className = "t";
+      t.textContent = formatClock(m.timestamp);
+      div.append(textEl, t);
+      box.append(div);
+    });
+    box.scrollTop = box.scrollHeight;
+    markRead(uid);
+  });
+}
+
+$("btnBackMobile").onclick = () => {
+  $("layout").classList.remove("chat-open");
+  selectedUid = null;
+  if (messagesRef) { messagesRef.off(); messagesRef = null; }
+  renderChatList();
+};
+
+function currentChat() {
+  return chats.find((c) => c.uid === selectedUid);
+}
+
+function renderChatHeader() {
+  const c = currentChat();
+  if (!c) return;
+  const status = c.info.status || "open";
+  $("chName").textContent = (c.info.chatNumber ? "Обращение #" + c.info.chatNumber + " · " : "") +
+    (c.info.userName || "Без имени");
+  $("chMeta").textContent = (c.info.userEmail ? c.info.userEmail + " · " : "") + "UID: " + c.uid;
+  const pill = $("chStatus");
+  pill.textContent = status === "closed" ? "закрыт" : "открыт";
+  pill.className = "status-pill " + status;
+  const btn = $("btnToggleStatus");
+  btn.textContent = status === "closed" ? "Открыть заново" : "Закрыть диалог";
+  btn.className = "btn-close-chat" + (status === "closed" ? " reopen" : "");
+}
+
+function markRead(uid) {
+  rtdb.ref(`supportChats/${uid}/info/unreadByAdmin`).set(0);
+}
+
+// ================= ОТПРАВКА =================
+$("btnSend").onclick = sendMessage;
+$("msgInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+function sendMessage() {
+  const uid = selectedUid;
+  if (!uid) return;
+  const text = $("msgInput").value.trim();
+  if (!text) return;
+  $("msgInput").value = "";
+
+  rtdb.ref(`supportChats/${uid}/messages`).push({
+    text,
+    sender: "admin",
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  });
+  rtdb.ref(`supportChats/${uid}/info`).update({
+    lastMessage: text.substring(0, 120),
+    lastTimestamp: firebase.database.ServerValue.TIMESTAMP,
+    lastSender: "admin",
+    unreadByUser: firebase.database.ServerValue.increment(1),
+    unreadByAdmin: 0,
+  });
+}
+
+// ================= ЗАКРЫТЬ / ОТКРЫТЬ =================
+$("btnToggleStatus").onclick = () => {
+  const c = currentChat();
+  if (!c) return;
+  const status = c.info.status || "open";
+  if (status === "open") {
+    if (!confirm("Закрыть диалог? Пользователь увидит, что вопрос решён.")) return;
+    const closeMsg = "✅ Диалог закрыт. Если появятся вопросы — просто напишите нам!";
+    rtdb.ref(`supportChats/${c.uid}/messages`).push({
+      text: closeMsg,
+      sender: "admin",
+      timestamp: firebase.database.ServerValue.TIMESTAMP,
+    });
+    rtdb.ref(`supportChats/${c.uid}/info`).update({
+      status: "closed",
+      lastMessage: closeMsg.substring(0, 120),
+      lastTimestamp: firebase.database.ServerValue.TIMESTAMP,
+      lastSender: "admin",
+      unreadByUser: firebase.database.ServerValue.increment(1),
+      closedBy: auth.currentUser ? auth.currentUser.email : "",
+      closedAt: firebase.database.ServerValue.TIMESTAMP,
+    });
+  } else {
+    rtdb.ref(`supportChats/${c.uid}/info`).update({ status: "open" });
+  }
+};
+
+// ================= ВРЕМЯ =================
+function formatTime(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return formatClock(ts);
+  return d.toLocaleDateString("ru", { day: "2-digit", month: "2-digit" });
+}
+function formatClock(ts) {
+  if (!ts) return "";
+  return new Date(ts).toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" });
+}
+function formatDay(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return "Сегодня";
+  const yest = new Date(now.getTime() - 86400000);
+  if (d.toDateString() === yest.toDateString()) return "Вчера";
+  return d.toLocaleDateString("ru", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+// Автовысота поля ввода
+$("msgInput").addEventListener("input", function () {
+  this.style.height = "44px";
+  this.style.height = Math.min(this.scrollHeight, 120) + "px";
+});
+</script>
+</body>
+</html>
