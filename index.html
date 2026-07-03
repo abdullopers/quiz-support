@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Поддержка Quiz</title>
 <style>
@@ -17,24 +17,32 @@
     --green: #30D158;
     --red: #FF3B30;
     --gold: #FF9F0A;
+    --vh: 100vh;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
   }
   button { cursor: pointer; font-family: inherit; }
   input, textarea { font-family: inherit; }
+  img { max-width: 100%; }
 
   /* ===== Экран входа ===== */
   #loginScreen {
-    height: 100vh; display: flex; align-items: center; justify-content: center;
+    height: 100vh; height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
     background: linear-gradient(160deg, #0A84FF 0%, #0060CC 100%);
+    padding: 16px;
   }
   .login-card {
     background: var(--surface); border-radius: 20px; padding: 36px 32px;
     width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
-    text-align: center; margin: 16px;
+    text-align: center;
   }
   .login-card .logo { font-size: 48px; }
   .login-card h1 { font-size: 22px; margin: 10px 0 4px; }
@@ -42,7 +50,7 @@
   .login-card input {
     width: 100%; padding: 13px 14px; margin-bottom: 12px;
     border: 1px solid var(--divider); border-radius: 12px;
-    font-size: 15px; background: var(--bg); outline: none;
+    font-size: 16px; background: var(--bg); outline: none;
   }
   .login-card input:focus { border-color: var(--primary); background: #fff; }
   .login-card button {
@@ -52,18 +60,32 @@
   .login-card button:hover { background: var(--primary-dark); }
   .login-card button:disabled { opacity: .6; cursor: default; }
   .login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
+  @media (max-width: 400px) {
+    .login-card { padding: 26px 20px; }
+  }
 
   /* ===== Основной экран ===== */
-  #appScreen { display: none; height: 100vh; flex-direction: column; }
+  #appScreen { display: none; height: 100vh; height: 100dvh; flex-direction: column; }
   .topbar {
     background: var(--surface); border-bottom: 1px solid var(--divider);
-    padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    min-height: 54px;
   }
-  .topbar .title { font-size: 17px; font-weight: 700; flex: 1; }
-  .topbar .operator { font-size: 13px; color: var(--text2); }
+  .topbar .title { font-size: 17px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .operator {
+    font-size: 13px; color: var(--text2); cursor: pointer;
+    padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+    max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topbar .operator:hover { background: var(--bg); }
   .topbar .logout {
     background: var(--bg); border: 1px solid var(--divider); border-radius: 10px;
-    padding: 7px 14px; font-size: 13px; color: var(--red); font-weight: 600;
+    padding: 8px 14px; font-size: 13px; color: var(--red); font-weight: 600; flex-shrink: 0;
+  }
+  @media (max-width: 480px) {
+    .topbar { padding: 8px 10px; gap: 6px; }
+    .topbar .title { font-size: 15px; }
+    .topbar .operator { max-width: 110px; font-size: 12px; }
   }
 
   .layout { flex: 1; display: flex; min-height: 0; }
@@ -73,6 +95,7 @@
     width: 340px; background: var(--surface); border-right: 1px solid var(--divider);
     display: flex; flex-direction: column; flex-shrink: 0;
   }
+  @media (max-width: 1024px) { .sidebar { width: 290px; } }
   .sidebar .search { padding: 12px 12px 8px; }
   .sidebar .search input {
     width: 100%; padding: 10px 14px; border: 1px solid var(--divider);
@@ -80,11 +103,11 @@
   }
   .filters { display: flex; gap: 6px; padding: 0 12px 10px; }
   .filters button {
-    flex: 1; padding: 7px 0; border: none; border-radius: 9px;
+    flex: 1; padding: 8px 0; border: none; border-radius: 9px;
     background: var(--bg); color: var(--text2); font-size: 13px; font-weight: 600;
   }
   .filters button.active { background: var(--primary); color: #fff; }
-  .chat-list { flex: 1; overflow-y: auto; }
+  .chat-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .chat-item {
     padding: 12px 14px; border-bottom: 1px solid var(--divider);
     cursor: pointer; display: flex; gap: 10px; align-items: flex-start;
@@ -115,74 +138,187 @@
   .empty-list { text-align: center; color: var(--text2); font-size: 14px; padding: 40px 20px; }
 
   /* ===== Окно чата ===== */
-  .chat-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chat-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
   .chat-header {
     background: var(--surface); border-bottom: 1px solid var(--divider);
-    padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    flex-wrap: wrap;
   }
-  .chat-header .info { flex: 1; min-width: 0; }
-  .chat-header .name { font-size: 16px; font-weight: 700; }
-  .chat-header .meta { font-size: 12px; color: var(--text2); margin-top: 2px; word-break: break-all; }
+  .chat-header .info { flex: 1; min-width: 140px; }
+  .chat-header .name { font-size: 15px; font-weight: 700; }
+  .chat-header .meta { font-size: 11px; color: var(--text2); margin-top: 2px; word-break: break-all; }
   .status-pill {
     font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px; flex-shrink: 0;
   }
   .status-pill.open { background: #E4F8EC; color: #1E9E4C; }
   .status-pill.closed { background: #F2F2F7; color: var(--text2); }
-  .btn-close-chat {
-    border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px;
-    font-weight: 600; flex-shrink: 0; background: var(--red); color: #fff;
+  .hbtn {
+    border: none; border-radius: 10px; padding: 8px 12px; font-size: 13px;
+    font-weight: 600; flex-shrink: 0; background: var(--bg); color: var(--text);
+    border: 1px solid var(--divider);
   }
+  .btn-close-chat { background: var(--red); color: #fff; border: none; }
   .btn-close-chat.reopen { background: var(--green); }
+  @media (max-width: 480px) {
+    .chat-header { padding: 8px 10px; gap: 6px; }
+    .chat-header .name { font-size: 14px; }
+    .chat-header .meta { display: none; }
+    .hbtn { padding: 7px 10px; font-size: 12px; }
+    .status-pill { padding: 3px 9px; font-size: 11px; }
+  }
 
-  .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .messages {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 16px; display: flex; flex-direction: column; gap: 8px;
+  }
   .msg { max-width: 65%; padding: 10px 14px; border-radius: 16px; font-size: 14px;
     line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+  .msg .op-name { font-size: 11px; font-weight: 700; margin-bottom: 3px; opacity: .85; }
   .msg .t { font-size: 10px; margin-top: 4px; text-align: right; opacity: .7; }
   .msg.user { align-self: flex-start; background: var(--surface);
     border: 1px solid var(--divider); border-bottom-left-radius: 4px; }
   .msg.admin { align-self: flex-end; background: var(--primary); color: #fff;
     border-bottom-right-radius: 4px; }
+  .msg img.chat-photo {
+    display: block; max-width: 100%; max-height: 320px;
+    border-radius: 10px; cursor: zoom-in; margin: 2px 0;
+  }
   .day-sep { text-align: center; font-size: 11px; color: var(--text2); margin: 10px 0 2px; }
+  @media (max-width: 720px) { .msg { max-width: 85%; } }
 
+  /* ===== Панель ввода ===== */
+  .composer-wrap { flex-shrink: 0; background: var(--surface); border-top: 1px solid var(--divider); }
   .composer {
-    background: var(--surface); border-top: 1px solid var(--divider);
-    padding: 12px 16px; display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 8px; align-items: flex-end;
   }
   .composer textarea {
     flex: 1; border: 1px solid var(--divider); border-radius: 12px;
-    padding: 11px 14px; font-size: 14px; resize: none; outline: none;
+    padding: 11px 14px; font-size: 15px; resize: none; outline: none;
     background: var(--bg); max-height: 120px; min-height: 44px;
   }
   .composer textarea:focus { border-color: var(--primary); background: #fff; }
-  .composer button {
+  .icon-btn {
     width: 44px; height: 44px; border: none; border-radius: 50%;
-    background: var(--primary); color: #fff; font-size: 18px; flex-shrink: 0;
+    font-size: 18px; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center;
   }
-  .composer button:hover { background: var(--primary-dark); }
+  .icon-btn.send { background: var(--primary); color: #fff; }
+  .icon-btn.send:hover { background: var(--primary-dark); }
+  .icon-btn.gray { background: var(--bg); border: 1px solid var(--divider); }
+  .icon-btn.gray:hover { background: #E8E8ED; }
+  @media (max-width: 400px) {
+    .composer { gap: 6px; padding-left: 8px; padding-right: 8px; }
+    .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+  }
+
+  /* ===== Быстрые ответы ===== */
+  .templates-pop {
+    display: none; position: absolute; bottom: 76px; left: 10px; right: 10px;
+    max-width: 480px; background: var(--surface); border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.18); border: 1px solid var(--divider);
+    max-height: 46vh; overflow-y: auto; z-index: 40;
+  }
+  .templates-pop.show { display: block; }
+  .templates-pop .tpl-item {
+    padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--divider);
+    cursor: pointer; line-height: 1.4;
+  }
+  .templates-pop .tpl-item:hover { background: #F7F9FC; }
+  .templates-pop .tpl-edit {
+    padding: 11px 14px; font-size: 13px; color: var(--primary); font-weight: 600;
+    cursor: pointer; text-align: center;
+  }
 
   .placeholder {
     flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; color: var(--text2); gap: 10px;
+    justify-content: center; color: var(--text2); gap: 10px; padding: 20px; text-align: center;
   }
   .placeholder .big { font-size: 52px; }
 
   #noAccess {
-    display: none; height: 100vh; flex-direction: column; align-items: center;
+    display: none; height: 100vh; height: 100dvh; flex-direction: column; align-items: center;
     justify-content: center; gap: 12px; text-align: center; padding: 20px;
   }
 
+  /* ===== Мобильная раскладка ===== */
   @media (max-width: 720px) {
-    .sidebar { width: 100%; }
+    .sidebar { width: 100%; border-right: none; }
     .chat-pane { display: none; }
     .layout.chat-open .sidebar { display: none; }
     .layout.chat-open .chat-pane { display: flex; }
-    .msg { max-width: 85%; }
-    #btnBackMobile { display: inline-block !important; }
+    #btnBackMobile { display: inline-flex !important; }
   }
   #btnBackMobile {
     display: none; border: none; background: var(--bg); border-radius: 10px;
-    padding: 8px 12px; font-size: 15px;
+    padding: 8px 12px; font-size: 15px; align-items: center;
   }
+
+  /* ===== Модальные окна ===== */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    z-index: 100; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 18px; padding: 22px;
+    width: 100%; max-width: 440px; max-height: 86vh; max-height: 86dvh;
+    overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal h3 { font-size: 17px; margin-bottom: 14px; }
+  .modal .row-btns { display: flex; gap: 10px; margin-top: 16px; }
+  .modal .row-btns button {
+    flex: 1; padding: 12px; border: none; border-radius: 12px; font-size: 14px; font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-gray { background: var(--bg); color: var(--text); border: 1px solid var(--divider) !important; }
+  .modal input[type=text] {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--divider);
+    border-radius: 12px; font-size: 15px; background: var(--bg); outline: none;
+  }
+  .modal input[type=text]:focus { border-color: var(--primary); background: #fff; }
+
+  /* превью фото перед отправкой */
+  #previewImg { width: 100%; max-height: 50vh; object-fit: contain; border-radius: 12px; background: var(--bg); }
+
+  /* лайтбокс */
+  #lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92);
+    z-index: 200; align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  #lightbox.show { display: flex; }
+  #lightbox img { max-width: 96vw; max-height: 96vh; max-height: 96dvh; object-fit: contain; }
+
+  /* карточка пользователя */
+  .ucard-row { display: flex; justify-content: space-between; gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid var(--divider); font-size: 14px; }
+  .ucard-row:last-child { border-bottom: none; }
+  .ucard-row .k { color: var(--text2); flex-shrink: 0; }
+  .ucard-row .v { font-weight: 600; text-align: right; word-break: break-all; }
+
+  /* менеджер шаблонов */
+  .tplm-item { display: flex; gap: 8px; align-items: flex-start;
+    padding: 9px 0; border-bottom: 1px solid var(--divider); }
+  .tplm-item .txt { flex: 1; font-size: 13px; line-height: 1.4; }
+  .tplm-item button { border: none; background: none; color: var(--red); font-size: 16px; padding: 2px 6px; }
+  .tpl-add { display: flex; gap: 8px; margin-top: 12px; }
+  .tpl-add input { flex: 1; }
+  .tpl-add button {
+    padding: 0 16px; border: none; border-radius: 12px;
+    background: var(--primary); color: #fff; font-size: 14px; font-weight: 600;
+  }
+
+  /* drag&drop подсветка */
+  #dropHint {
+    display: none; position: absolute; inset: 0; z-index: 30;
+    background: rgba(10,132,255,.12); border: 3px dashed var(--primary);
+    border-radius: 12px; margin: 8px;
+    align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 700; color: var(--primary);
+    pointer-events: none;
+  }
+  #dropHint.show { display: flex; }
 </style>
 </head>
 <body>
@@ -209,7 +345,7 @@
     в раздел <b>admins</b> базы данных.
   </p>
   <p style="font-size:12px;color:var(--text2)">Ваш UID: <code id="myUid"></code></p>
-  <button class="logout" style="border:1px solid var(--divider);background:#fff;border-radius:10px;padding:9px 18px;color:var(--red);font-weight:600" onclick="firebase.auth().signOut()">Выйти</button>
+  <button style="border:1px solid var(--divider);background:#fff;border-radius:10px;padding:9px 18px;color:var(--red);font-weight:600" onclick="firebase.auth().signOut()">Выйти</button>
 </div>
 
 <!-- ОСНОВНОЙ ЭКРАН -->
@@ -217,13 +353,13 @@
   <div class="topbar">
     <span style="font-size:22px">🎧</span>
     <span class="title">Поддержка Quiz</span>
-    <span class="operator" id="operatorEmail"></span>
+    <span class="operator" id="operatorLabel" title="Нажмите, чтобы изменить имя"></span>
     <button class="logout" id="btnLogout">Выйти</button>
   </div>
   <div class="layout" id="layout">
     <div class="sidebar">
       <div class="search">
-        <input type="text" id="searchInput" placeholder="🔍 Поиск по имени или email…">
+        <input type="text" id="searchInput" placeholder="🔍 Поиск: имя, email или #номер">
       </div>
       <div class="filters">
         <button data-filter="open" class="active">Открытые</button>
@@ -246,16 +382,79 @@
           <div class="meta" id="chMeta"></div>
         </div>
         <span class="status-pill open" id="chStatus">открыт</span>
-        <button class="btn-close-chat" id="btnToggleStatus">Закрыть диалог</button>
+        <button class="hbtn" id="btnUserCard" title="Данные пользователя">👤</button>
+        <button class="hbtn btn-close-chat" id="btnToggleStatus">Закрыть</button>
       </div>
       <div class="messages" id="messages" style="display:none"></div>
-      <div class="composer" id="composer" style="display:none">
-        <textarea id="msgInput" placeholder="Напишите ответ…" rows="1" maxlength="1000"></textarea>
-        <button id="btnSend" title="Отправить">➤</button>
+      <div id="dropHint">📷 Отпустите, чтобы прикрепить фото</div>
+      <div class="templates-pop" id="templatesPop"></div>
+      <div class="composer-wrap" id="composer" style="display:none">
+        <div class="composer">
+          <button class="icon-btn gray" id="btnAttach" title="Прикрепить фото">📎</button>
+          <button class="icon-btn gray" id="btnTemplates" title="Быстрые ответы">⚡</button>
+          <textarea id="msgInput" placeholder="Напишите ответ…" rows="1" maxlength="1000"></textarea>
+          <button class="icon-btn send" id="btnSend" title="Отправить">➤</button>
+        </div>
       </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
   </div>
 </div>
+
+<!-- МОДАЛКА: имя оператора -->
+<div class="overlay" id="nameOverlay">
+  <div class="modal">
+    <h3>👤 Ваше имя</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+      Это имя увидят пользователи в чате рядом с вашими ответами.
+    </p>
+    <input type="text" id="nameInput" placeholder="Например: Алексей" maxlength="30">
+    <div class="row-btns">
+      <button class="btn-primary" id="btnSaveName">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: превью фото перед отправкой -->
+<div class="overlay" id="previewOverlay">
+  <div class="modal">
+    <h3>📷 Отправить фото?</h3>
+    <img id="previewImg" alt="preview">
+    <div class="row-btns">
+      <button class="btn-gray" id="btnPreviewCancel">Отмена</button>
+      <button class="btn-primary" id="btnPreviewSend">Отправить</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: карточка пользователя -->
+<div class="overlay" id="ucardOverlay">
+  <div class="modal">
+    <h3>👤 Данные пользователя</h3>
+    <div id="ucardBody"><div style="color:var(--text2);font-size:14px">Загрузка…</div></div>
+    <div class="row-btns">
+      <button class="btn-gray" id="btnUcardClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: редактор шаблонов -->
+<div class="overlay" id="tplOverlay">
+  <div class="modal">
+    <h3>⚡ Быстрые ответы</h3>
+    <div id="tplList"></div>
+    <div class="tpl-add">
+      <input type="text" id="tplNewInput" placeholder="Новый шаблон…" maxlength="500">
+      <button id="btnTplAdd">＋</button>
+    </div>
+    <div class="row-btns">
+      <button class="btn-gray" id="btnTplClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ЛАЙТБОКС -->
+<div id="lightbox"><img id="lightboxImg" alt="photo"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -277,7 +476,19 @@ let currentFilter = "open";
 let selectedUid = null;
 let chatsRef = null;
 let messagesRef = null;
+let templatesRef = null;
 let prevTotalUnread = null;
+let myName = "";              // имя оператора
+let templates = [];           // [{key, text}]
+let pendingImageBase64 = null; // фото, ждущее подтверждения отправки
+
+const DEFAULT_TEMPLATES = [
+  "Здравствуйте! 👋 Чем можем помочь?",
+  "Проверьте, пожалуйста, подключение к интернету и обновите приложение до последней версии.",
+  "Выплата обрабатывается в течение 1–3 рабочих дней. Спасибо за ожидание! 🙏",
+  "Пришлите, пожалуйста, скриншот проблемы — так мы быстрее разберёмся.",
+  "Рады помочь! Если появятся ещё вопросы — пишите. Хорошего дня! 😊",
+];
 
 // ================= ВХОД =================
 $("btnLogin").onclick = login;
@@ -289,6 +500,8 @@ async function login() {
   if (!email || !pass) { $("loginError").textContent = "Введите email и пароль"; return; }
   $("btnLogin").disabled = true;
   $("loginError").textContent = "";
+  // Запрашиваем разрешение на уведомления по клику (браузеры требуют жест)
+  requestNotifyPermission();
   try {
     await auth.signInWithEmailAndPassword(email, pass);
   } catch (e) {
@@ -318,9 +531,11 @@ auth.onAuthStateChanged(async (user) => {
     showScreen("noAccess");
     return;
   }
-  $("operatorEmail").textContent = user.email || "";
   showScreen("app");
+  await loadOperatorName(user);
   attachChats();
+  attachTemplates();
+  requestNotifyPermission();
 });
 
 function showScreen(name) {
@@ -332,9 +547,50 @@ function showScreen(name) {
 function detachAll() {
   if (chatsRef) { chatsRef.off(); chatsRef = null; }
   if (messagesRef) { messagesRef.off(); messagesRef = null; }
+  if (templatesRef) { templatesRef.off(); templatesRef = null; }
   selectedUid = null;
   chats = [];
+  templates = [];
+  myName = "";
   prevTotalUnread = null;
+}
+
+// ================= ИМЯ ОПЕРАТОРА =================
+async function loadOperatorName(user) {
+  try {
+    const snap = await rtdb.ref("operatorNames/" + user.uid).once("value");
+    myName = (snap.val() || "").toString().trim();
+  } catch (e) { myName = ""; }
+  updateOperatorLabel();
+  if (!myName) openNameModal();
+}
+
+function updateOperatorLabel() {
+  const email = auth.currentUser ? (auth.currentUser.email || "") : "";
+  $("operatorLabel").textContent = myName ? `${myName} · ${email}` : email;
+}
+
+function openNameModal() {
+  $("nameInput").value = myName;
+  $("nameOverlay").classList.add("show");
+  setTimeout(() => $("nameInput").focus(), 50);
+}
+
+$("operatorLabel").onclick = openNameModal;
+$("btnSaveName").onclick = saveName;
+$("nameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
+
+async function saveName() {
+  const name = $("nameInput").value.trim();
+  if (!name) { $("nameInput").focus(); return; }
+  myName = name.substring(0, 30);
+  try {
+    await rtdb.ref("operatorNames/" + auth.currentUser.uid).set(myName);
+  } catch (e) {
+    alert("Не удалось сохранить имя. Проверьте правила базы (operatorNames).");
+  }
+  updateOperatorLabel();
+  $("nameOverlay").classList.remove("show");
 }
 
 // ================= СПИСОК ЧАТОВ =================
@@ -428,10 +684,34 @@ function renderChatList() {
   }
 }
 
+// ================= УВЕДОМЛЕНИЯ =================
+function requestNotifyPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function showBrowserNotification() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!document.hidden && document.hasFocus()) return; // вкладка на виду — хватит звука
+  // Самый свежий чат с непрочитанными
+  const c = chats.find((x) => (x.info.unreadByAdmin || 0) > 0);
+  if (!c) return;
+  const title = "🎧 Новое сообщение" + (c.info.chatNumber ? " · #" + c.info.chatNumber : "");
+  const body = (c.info.userName || "Без имени") + ": " + (c.info.lastMessage || "");
+  try {
+    const n = new Notification(title, { body, tag: "quiz-support", renotify: true });
+    n.onclick = () => { window.focus(); selectChat(c.uid); n.close(); };
+  } catch (e) {}
+}
+
 function updateUnreadTitle() {
   const total = chats.reduce((sum, c) => sum + (c.info.unreadByAdmin || 0), 0);
   document.title = (total > 0 ? `(${total}) ` : "") + "Поддержка Quiz";
-  if (prevTotalUnread !== null && total > prevTotalUnread) beep();
+  if (prevTotalUnread !== null && total > prevTotalUnread) {
+    beep();
+    showBrowserNotification();
+  }
   prevTotalUnread = total;
 }
 
@@ -456,7 +736,7 @@ function selectChat(uid) {
   $("chatPlaceholder").style.display = "none";
   $("chatHeader").style.display = "flex";
   $("messages").style.display = "flex";
-  $("composer").style.display = "flex";
+  $("composer").style.display = "block";
   renderChatList();
   renderChatHeader();
   markRead(uid);
@@ -480,12 +760,35 @@ function selectChat(uid) {
       }
       const div = document.createElement("div");
       div.className = "msg " + (m.sender === "admin" ? "admin" : "user");
-      const textEl = document.createElement("div");
-      textEl.textContent = m.text || "";
+
+      // имя оператора над сообщением
+      if (m.sender === "admin" && m.operatorName) {
+        const nameEl = document.createElement("div");
+        nameEl.className = "op-name";
+        nameEl.textContent = m.operatorName;
+        div.append(nameEl);
+      }
+
+      // фото
+      if (m.image) {
+        const img = document.createElement("img");
+        img.className = "chat-photo";
+        img.src = "data:image/jpeg;base64," + m.image;
+        img.onclick = () => openLightbox(img.src);
+        div.append(img);
+      }
+
+      // текст
+      if (m.text) {
+        const textEl = document.createElement("div");
+        textEl.textContent = m.text;
+        div.append(textEl);
+      }
+
       const t = document.createElement("div");
       t.className = "t";
       t.textContent = formatClock(m.timestamp);
-      div.append(textEl, t);
+      div.append(t);
       box.append(div);
     });
     box.scrollTop = box.scrollHeight;
@@ -515,8 +818,8 @@ function renderChatHeader() {
   pill.textContent = status === "closed" ? "закрыт" : "открыт";
   pill.className = "status-pill " + status;
   const btn = $("btnToggleStatus");
-  btn.textContent = status === "closed" ? "Открыть заново" : "Закрыть диалог";
-  btn.className = "btn-close-chat" + (status === "closed" ? " reopen" : "");
+  btn.textContent = status === "closed" ? "Открыть" : "Закрыть";
+  btn.className = "hbtn btn-close-chat" + (status === "closed" ? " reopen" : "");
 }
 
 function markRead(uid) {
@@ -535,10 +838,12 @@ function sendMessage() {
   const text = $("msgInput").value.trim();
   if (!text) return;
   $("msgInput").value = "";
+  $("msgInput").style.height = "44px";
 
   rtdb.ref(`supportChats/${uid}/messages`).push({
     text,
     sender: "admin",
+    operatorName: myName || "Оператор",
     timestamp: firebase.database.ServerValue.TIMESTAMP,
   });
   rtdb.ref(`supportChats/${uid}/info`).update({
@@ -549,6 +854,282 @@ function sendMessage() {
     unreadByAdmin: 0,
   });
 }
+
+function sendImageMessage(base64) {
+  const uid = selectedUid;
+  if (!uid || !base64) return;
+  rtdb.ref(`supportChats/${uid}/messages`).push({
+    text: "",
+    image: base64,
+    sender: "admin",
+    operatorName: myName || "Оператор",
+    timestamp: firebase.database.ServerValue.TIMESTAMP,
+  });
+  rtdb.ref(`supportChats/${uid}/info`).update({
+    lastMessage: "📷 Фото",
+    lastTimestamp: firebase.database.ServerValue.TIMESTAMP,
+    lastSender: "admin",
+    unreadByUser: firebase.database.ServerValue.increment(1),
+    unreadByAdmin: 0,
+  });
+}
+
+// ================= ФОТО: выбор, вставка, drag&drop =================
+$("btnAttach").onclick = () => { if (selectedUid) $("fileInput").click(); };
+$("fileInput").onchange = (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (file) handleImageFile(file);
+};
+
+// Вставка из буфера (Ctrl+V)
+document.addEventListener("paste", (e) => {
+  if (!selectedUid) return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) { e.preventDefault(); handleImageFile(file); }
+      return;
+    }
+  }
+});
+
+// Drag&drop на окно чата
+const chatPane = $("chatPane");
+let dragCounter = 0;
+chatPane.addEventListener("dragenter", (e) => {
+  if (!selectedUid) return;
+  e.preventDefault();
+  dragCounter++;
+  $("dropHint").classList.add("show");
+});
+chatPane.addEventListener("dragover", (e) => { e.preventDefault(); });
+chatPane.addEventListener("dragleave", (e) => {
+  dragCounter = Math.max(0, dragCounter - 1);
+  if (dragCounter === 0) $("dropHint").classList.remove("show");
+});
+chatPane.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragCounter = 0;
+  $("dropHint").classList.remove("show");
+  if (!selectedUid) return;
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) handleImageFile(file);
+});
+
+async function handleImageFile(file) {
+  try {
+    const base64 = await compressImage(file);
+    if (!base64) { alert("Не удалось обработать фото (слишком большое или не картинка)"); return; }
+    pendingImageBase64 = base64;
+    $("previewImg").src = "data:image/jpeg;base64," + base64;
+    $("previewOverlay").classList.add("show");
+  } catch (e) {
+    alert("Не удалось обработать фото");
+  }
+}
+
+$("btnPreviewCancel").onclick = () => {
+  pendingImageBase64 = null;
+  $("previewOverlay").classList.remove("show");
+};
+$("btnPreviewSend").onclick = () => {
+  if (pendingImageBase64) sendImageMessage(pendingImageBase64);
+  pendingImageBase64 = null;
+  $("previewOverlay").classList.remove("show");
+};
+
+/**
+ * Сжимает картинку: максимум 1024px по большей стороне, JPEG.
+ * Возвращает base64 без префикса, не больше ~200 000 символов (~150 КБ).
+ */
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const MAX_SIDE = 1024;
+    const MAX_CHARS = 200000;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { resolve(null); return; }
+      if (w > MAX_SIDE || h > MAX_SIDE) {
+        const scale = MAX_SIDE / Math.max(w, h);
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff"; // PNG с прозрачностью → белый фон
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      let quality = 0.75;
+      let base64 = "";
+      do {
+        base64 = canvas.toDataURL("image/jpeg", quality).split(",")[1] || "";
+        quality -= 0.1;
+      } while (base64.length > MAX_CHARS && quality >= 0.35);
+
+      resolve(base64.length > MAX_CHARS || !base64 ? null : base64);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+// ================= ЛАЙТБОКС =================
+function openLightbox(src) {
+  $("lightboxImg").src = src;
+  $("lightbox").classList.add("show");
+}
+$("lightbox").onclick = () => $("lightbox").classList.remove("show");
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    $("lightbox").classList.remove("show");
+    $("templatesPop").classList.remove("show");
+  }
+});
+
+// ================= БЫСТРЫЕ ОТВЕТЫ =================
+function attachTemplates() {
+  templatesRef = rtdb.ref("supportTemplates");
+  templatesRef.on("value", (snap) => {
+    templates = [];
+    snap.forEach((child) => {
+      const text = child.val();
+      if (typeof text === "string" && text.trim()) {
+        templates.push({ key: child.key, text });
+      }
+    });
+    renderTemplatesPop();
+    renderTemplatesManager();
+  });
+  // При первом запуске — заполняем стандартными шаблонами
+  templatesRef.once("value").then((snap) => {
+    if (!snap.exists()) {
+      DEFAULT_TEMPLATES.forEach((t) => templatesRef.push(t));
+    }
+  }).catch(() => {});
+}
+
+$("btnTemplates").onclick = (e) => {
+  e.stopPropagation();
+  $("templatesPop").classList.toggle("show");
+};
+document.addEventListener("click", (e) => {
+  if (!$("templatesPop").contains(e.target) && e.target !== $("btnTemplates")) {
+    $("templatesPop").classList.remove("show");
+  }
+});
+
+function renderTemplatesPop() {
+  const pop = $("templatesPop");
+  pop.innerHTML = "";
+  for (const t of templates) {
+    const item = document.createElement("div");
+    item.className = "tpl-item";
+    item.textContent = t.text;
+    item.onclick = () => {
+      const inp = $("msgInput");
+      inp.value = t.text;
+      pop.classList.remove("show");
+      inp.focus();
+      autoGrow(inp);
+    };
+    pop.append(item);
+  }
+  const edit = document.createElement("div");
+  edit.className = "tpl-edit";
+  edit.textContent = "✏️ Редактировать шаблоны";
+  edit.onclick = () => {
+    pop.classList.remove("show");
+    $("tplOverlay").classList.add("show");
+  };
+  pop.append(edit);
+}
+
+function renderTemplatesManager() {
+  const list = $("tplList");
+  list.innerHTML = "";
+  if (templates.length === 0) {
+    list.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:8px 0">Шаблонов пока нет</div>';
+  }
+  for (const t of templates) {
+    const row = document.createElement("div");
+    row.className = "tplm-item";
+    const txt = document.createElement("div");
+    txt.className = "txt";
+    txt.textContent = t.text;
+    const del = document.createElement("button");
+    del.textContent = "🗑";
+    del.title = "Удалить";
+    del.onclick = () => {
+      if (confirm("Удалить этот шаблон?")) rtdb.ref("supportTemplates/" + t.key).remove();
+    };
+    row.append(txt, del);
+    list.append(row);
+  }
+}
+
+$("btnTplAdd").onclick = addTemplate;
+$("tplNewInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addTemplate(); });
+function addTemplate() {
+  const text = $("tplNewInput").value.trim();
+  if (!text) return;
+  rtdb.ref("supportTemplates").push(text);
+  $("tplNewInput").value = "";
+}
+$("btnTplClose").onclick = () => $("tplOverlay").classList.remove("show");
+
+// ================= КАРТОЧКА ПОЛЬЗОВАТЕЛЯ =================
+$("btnUserCard").onclick = async () => {
+  const c = currentChat();
+  if (!c) return;
+  $("ucardBody").innerHTML = '<div style="color:var(--text2);font-size:14px">Загрузка…</div>';
+  $("ucardOverlay").classList.add("show");
+  try {
+    const snap = await rtdb.ref("users/" + c.uid).once("value");
+    const u = snap.val();
+    if (!u) {
+      $("ucardBody").innerHTML = '<div style="color:var(--text2);font-size:14px">Профиль не найден</div>';
+      return;
+    }
+    const rows = [
+      ["Имя", u.displayName || "—"],
+      ["Email", u.email || "—"],
+      ["Баланс", (u.balance != null ? u.balance.toFixed(2) + " ₽" : "—")],
+      ["Всего заработано", (u.totalEarned != null ? u.totalEarned.toFixed(2) + " ₽" : "—")],
+      ["Просмотров рекламы", u.adsTotal != null ? u.adsTotal : "—"],
+      ["Рефералов", u.referralCount != null ? u.referralCount : "—"],
+      ["Заработано с рефералов", (u.referralEarned != null ? u.referralEarned.toFixed(2) + " ₽" : "—")],
+      ["Регистрация", u.createdAt ? new Date(u.createdAt).toLocaleDateString("ru") : "—"],
+      ["UID", c.uid],
+    ];
+    const body = $("ucardBody");
+    body.innerHTML = "";
+    for (const [k, v] of rows) {
+      const row = document.createElement("div");
+      row.className = "ucard-row";
+      const kEl = document.createElement("span");
+      kEl.className = "k";
+      kEl.textContent = k;
+      const vEl = document.createElement("span");
+      vEl.className = "v";
+      vEl.textContent = v;
+      row.append(kEl, vEl);
+      body.append(row);
+    }
+  } catch (e) {
+    $("ucardBody").innerHTML =
+      '<div style="color:var(--red);font-size:13px">Нет доступа к профилю. ' +
+      'Добавьте операторам право чтения <b>users</b> в правилах базы (см. инструкцию).</div>';
+  }
+};
+$("btnUcardClose").onclick = () => $("ucardOverlay").classList.remove("show");
 
 // ================= ЗАКРЫТЬ / ОТКРЫТЬ =================
 $("btnToggleStatus").onclick = () => {
@@ -561,6 +1142,7 @@ $("btnToggleStatus").onclick = () => {
     rtdb.ref(`supportChats/${c.uid}/messages`).push({
       text: closeMsg,
       sender: "admin",
+      operatorName: myName || "Оператор",
       timestamp: firebase.database.ServerValue.TIMESTAMP,
     });
     rtdb.ref(`supportChats/${c.uid}/info`).update({
@@ -600,10 +1182,11 @@ function formatDay(ts) {
 }
 
 // Автовысота поля ввода
-$("msgInput").addEventListener("input", function () {
-  this.style.height = "44px";
-  this.style.height = Math.min(this.scrollHeight, 120) + "px";
-});
+function autoGrow(el) {
+  el.style.height = "44px";
+  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+}
+$("msgInput").addEventListener("input", function () { autoGrow(this); });
 </script>
 </body>
 </html>
