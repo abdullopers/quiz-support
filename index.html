@@ -505,9 +505,32 @@ async function login() {
   try {
     await auth.signInWithEmailAndPassword(email, pass);
   } catch (e) {
-    $("loginError").textContent = "Неверный email или пароль";
+    $("loginError").textContent = loginErrorText(e);
   }
   $("btnLogin").disabled = false;
+}
+
+// Понятное описание ошибки входа вместо общей фразы
+function loginErrorText(e) {
+  const code = (e && e.code) || "";
+  switch (code) {
+    case "auth/operation-not-allowed":
+      return "Вход Email/Пароль не включён: Firebase Console → Authentication → Sign-in method → Email/Password → включить";
+    case "auth/user-not-found":
+      return "Такого аккаунта нет. Создайте операторов: откройте ссылку setupOperators (см. инструкцию, Шаг 3)";
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
+      return "Неверный email или пароль. Если аккаунты ещё не созданы — запустите setupOperators (Шаг 3 инструкции)";
+    case "auth/invalid-email":
+      return "Некорректный email";
+    case "auth/too-many-requests":
+      return "Слишком много попыток — подождите пару минут";
+    case "auth/network-request-failed":
+      return "Нет связи с сервером. Проверьте интернет";
+    default:
+      return code ? "Ошибка: " + code : "Не удалось войти";
+  }
 }
 
 $("btnLogout").onclick = () => auth.signOut();
