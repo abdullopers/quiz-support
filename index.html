@@ -365,6 +365,7 @@
         <button data-filter="open" class="active">Открытые</button>
         <button data-filter="closed">Закрытые</button>
         <button data-filter="all">Все</button>
+        <button data-filter="banned">🚫 ЧС</button>
       </div>
       <div class="chat-list" id="chatList">
         <div class="empty-list">Загрузка…</div>
@@ -383,6 +384,7 @@
         </div>
         <span class="status-pill open" id="chStatus">открыт</span>
         <button class="hbtn" id="btnUserCard" title="Данные пользователя">👤</button>
+        <button class="hbtn" id="btnBan" title="Чёрный список">🚫</button>
         <button class="hbtn btn-close-chat" id="btnToggleStatus">Закрыть</button>
       </div>
       <div class="messages" id="messages" style="display:none"></div>
@@ -477,6 +479,8 @@ let selectedUid = null;
 let chatsRef = null;
 let messagesRef = null;
 let templatesRef = null;
+let bansRef = null;
+let bans = {};                // {uid: true} — чёрный список
 let prevTotalUnread = null;
 let myName = "";              // имя оператора
 let templates = [];           // [{key, text}]
@@ -558,6 +562,7 @@ auth.onAuthStateChanged(async (user) => {
   await loadOperatorName(user);
   attachChats();
   attachTemplates();
+  attachBans();
   requestNotifyPermission();
 });
 
@@ -571,12 +576,37 @@ function detachAll() {
   if (chatsRef) { chatsRef.off(); chatsRef = null; }
   if (messagesRef) { messagesRef.off(); messagesRef = null; }
   if (templatesRef) { templatesRef.off(); templatesRef = null; }
+  if (bansRef) { bansRef.off(); bansRef = null; }
   selectedUid = null;
   chats = [];
   templates = [];
+  bans = {};
   myName = "";
   prevTotalUnread = null;
 }
+
+// ================= ЧЁРНЫЙ СПИСОК =================
+function attachBans() {
+  bansRef = rtdb.ref("supportBans");
+  bansRef.on("value", (snap) => {
+    bans = snap.val() || {};
+    renderChatList();
+    if (selectedUid) renderChatHeader();
+  });
+}
+
+$("btnBan").onclick = () => {
+  const c = currentChat();
+  if (!c) return;
+  const name = c.info.userName || "Без имени";
+  if (bans[c.uid] === true) {
+    if (!confirm(`Убрать «${name}» из чёрного списка?`)) return;
+    rtdb.ref("supportBans/" + c.uid).remove();
+  } else {
+    if (!confirm(`Добавить «${name}» в чёрный список?\n\nПользователь не сможет писать в поддержку, его новые сообщения будут удаляться автоматически.`)) return;
+    rtdb.ref("supportBans/" + c.uid).set(true);
+  }
+};
 
 // ================= ИМЯ ОПЕРАТОРА =================
 async function loadOperatorName(user) {
@@ -644,6 +674,7 @@ $("searchInput").oninput = renderChatList;
 
 function chatMatchesFilter(c) {
   const status = c.info.status || "open";
+  if (currentFilter === "banned") return bans[c.uid] === true;
   if (currentFilter === "open" && status !== "open") return false;
   if (currentFilter === "closed" && status !== "closed") return false;
   const q = $("searchInput").value.trim().toLowerCase();
@@ -683,7 +714,8 @@ function renderChatList() {
     row1.className = "row1";
     const nameEl = document.createElement("div");
     nameEl.className = "name";
-    nameEl.textContent = (info.chatNumber ? "#" + info.chatNumber + " · " : "") + name;
+    nameEl.textContent = (bans[c.uid] === true ? "🚫 " : "") +
+      (info.chatNumber ? "#" + info.chatNumber + " · " : "") + name;
     const timeEl = document.createElement("div");
     timeEl.className = "time";
     timeEl.textContent = formatTime(info.lastTimestamp);
@@ -837,9 +869,13 @@ function renderChatHeader() {
   $("chName").textContent = (c.info.chatNumber ? "Обращение #" + c.info.chatNumber + " · " : "") +
     (c.info.userName || "Без имени");
   $("chMeta").textContent = (c.info.userEmail ? c.info.userEmail + " · " : "") + "UID: " + c.uid;
+  const banned = bans[c.uid] === true;
   const pill = $("chStatus");
-  pill.textContent = status === "closed" ? "закрыт" : "открыт";
-  pill.className = "status-pill " + status;
+  pill.textContent = banned ? "в ЧС" : (status === "closed" ? "закрыт" : "открыт");
+  pill.className = "status-pill " + (banned ? "closed" : status);
+  const btnB = $("btnBan");
+  btnB.textContent = banned ? "♻️ Разбанить" : "🚫";
+  btnB.title = banned ? "Убрать из чёрного списка" : "В чёрный список";
   const btn = $("btnToggleStatus");
   btn.textContent = status === "closed" ? "Открыть" : "Закрыть";
   btn.className = "hbtn btn-close-chat" + (status === "closed" ? " reopen" : "");
