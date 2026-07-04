@@ -107,6 +107,14 @@
     background: var(--bg); color: var(--text2); font-size: 13px; font-weight: 600;
   }
   .filters button.active { background: var(--primary); color: #fff; }
+  .stats-bar {
+    padding: 0 14px 8px; font-size: 12px; color: var(--text2);
+    display: flex; flex-wrap: wrap; gap: 2px 12px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .stats-bar b { color: var(--text); }
+  .history-box { display: flex; flex-direction: column; gap: 8px; }
+  .history-box .msg { max-width: 88%; }
   .chat-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .chat-item {
     padding: 12px 14px; border-bottom: 1px solid var(--divider);
@@ -363,8 +371,11 @@
       </div>
       <div class="filters">
         <button data-filter="open" class="active">Открытые</button>
+        <button data-filter="closed">Закрытые</button>
+        <button data-filter="all">Все</button>
         <button data-filter="banned">🚫 ЧС</button>
       </div>
+      <div class="stats-bar" id="statsBar"></div>
       <div class="chat-list" id="chatList">
         <div class="empty-list">Загрузка…</div>
       </div>
@@ -382,6 +393,7 @@
         </div>
         <span class="status-pill open" id="chStatus">открыт</span>
         <button class="hbtn" id="btnUserCard" title="Данные пользователя">👤</button>
+        <button class="hbtn" id="btnHistory" title="Прошлые обращения пользователя">📜</button>
         <button class="hbtn" id="btnBan" title="Чёрный список">🚫</button>
         <button class="hbtn btn-close-chat" id="btnToggleStatus">Закрыть</button>
       </div>
@@ -434,6 +446,17 @@
     <div id="ucardBody"><div style="color:var(--text2);font-size:14px">Загрузка…</div></div>
     <div class="row-btns">
       <button class="btn-gray" id="btnUcardClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: прошлые обращения пользователя -->
+<div class="overlay" id="historyOverlay">
+  <div class="modal" style="max-width:560px">
+    <h3>📜 Прошлые обращения</h3>
+    <div id="historyBody" class="history-box"></div>
+    <div class="row-btns">
+      <button class="btn-gray" id="btnHistoryClose">Закрыть</button>
     </div>
   </div>
 </div>
@@ -683,9 +706,8 @@ $("searchInput").oninput = renderChatList;
 function chatMatchesFilter(c) {
   const status = c.info.status || "open";
   if (currentFilter === "banned") return bans[c.uid] === true;
-  // В менеджере только открытые заявки: закрытые остаются лишь в истории
-  // пользователя в приложении, а повторный вопрос придёт новой заявкой
-  if (status !== "open") return false;
+  if (currentFilter === "open" && status !== "open") return false;
+  if (currentFilter === "closed" && status !== "closed") return false;
   const q = $("searchInput").value.trim().toLowerCase();
   if (q) {
     const hay = ("#" + (c.info.chatNumber || "") + " " + (c.info.userName || "") + " " +
@@ -695,10 +717,54 @@ function chatMatchesFilter(c) {
   return true;
 }
 
+// Заявка «ждёт ответа», если она открыта и последнее слово за пользователем
+function isWaiting(c) {
+  return (c.info.status || "open") === "open" && c.info.lastSender === "user";
+}
+
+function formatWait(mins) {
+  if (mins < 1) return "сейчас";
+  if (mins < 60) return mins + " мин";
+  const h = Math.floor(mins / 60);
+  if (h < 24) return h + " ч";
+  return Math.floor(h / 24) + " д";
+}
+
+function updateStats() {
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const t0 = dayStart.getTime();
+  let open = 0, waiting = 0, newToday = 0, closedToday = 0;
+  for (const c of chats) {
+    const i = c.info;
+    const status = i.status || "open";
+    if (status === "open") {
+      open++;
+      if (isWaiting(c)) waiting++;
+    }
+    if ((i.ticketStartAt || 0) >= t0) newToday++;
+    if (status === "closed" && (i.closedAt || 0) >= t0) closedToday++;
+  }
+  $("statsBar").innerHTML =
+    `<span>Открыто: <b>${open}</b></span>` +
+    `<span>Ждут: <b${waiting > 0 ? ' style="color:var(--red)"' : ""}>${waiting}</b></span>` +
+    `<span>Новых сегодня: <b>${newToday}</b></span>` +
+    `<span>Закрыто сегодня: <b>${closedToday}</b></span>`;
+}
+
 function renderChatList() {
+  updateStats();
   const list = $("chatList");
+  const prevScroll = list.scrollTop;
   list.innerHTML = "";
   const visible = chats.filter(chatMatchesFilter);
+  // Кто дольше всех ждёт ответа — наверх списка, остальные по свежести
+  visible.sort((a, b) => {
+    const wa = isWaiting(a), wb = isWaiting(b);
+    if (wa !== wb) return wa ? -1 : 1;
+    if (wa) return (a.info.lastTimestamp || 0) - (b.info.lastTimestamp || 0);
+    return (b.info.lastTimestamp || 0) - (a.info.lastTimestamp || 0);
+  });
   if (visible.length === 0) {
     list.innerHTML = '<div class="empty-list">Обращений нет 🎉</div>';
     return;
@@ -727,7 +793,14 @@ function renderChatList() {
       (info.chatNumber ? "#" + info.chatNumber + " · " : "") + name;
     const timeEl = document.createElement("div");
     timeEl.className = "time";
-    timeEl.textContent = formatTime(info.lastTimestamp);
+    if (isWaiting(c) && info.lastTimestamp) {
+      // Таймер ожидания: краснеет, если пользователь ждёт больше часа
+      const mins = Math.max(0, Math.floor((Date.now() - info.lastTimestamp) / 60000));
+      timeEl.textContent = "⏳ " + formatWait(mins);
+      if (mins >= 60) { timeEl.style.color = "var(--red)"; timeEl.style.fontWeight = "700"; }
+    } else {
+      timeEl.textContent = formatTime(info.lastTimestamp);
+    }
     row1.append(nameEl, timeEl);
 
     const lastEl = document.createElement("div");
@@ -746,6 +819,7 @@ function renderChatList() {
     item.onclick = () => selectChat(c.uid);
     list.append(item);
   }
+  list.scrollTop = prevScroll;
 }
 
 // ================= УВЕДОМЛЕНИЯ =================
@@ -837,41 +911,77 @@ function renderMessages() {
         sep.textContent = day;
         box.append(sep);
       }
-      const div = document.createElement("div");
-      div.className = "msg " + (m.sender === "admin" ? "admin" : "user");
-
-      // имя оператора над сообщением
-      if (m.sender === "admin" && m.operatorName) {
-        const nameEl = document.createElement("div");
-        nameEl.className = "op-name";
-        nameEl.textContent = m.operatorName;
-        div.append(nameEl);
-      }
-
-      // фото
-      if (m.image) {
-        const img = document.createElement("img");
-        img.className = "chat-photo";
-        img.src = "data:image/jpeg;base64," + m.image;
-        img.onclick = () => openLightbox(img.src);
-        div.append(img);
-      }
-
-      // текст
-      if (m.text) {
-        const textEl = document.createElement("div");
-        textEl.textContent = m.text;
-        div.append(textEl);
-      }
-
-      const t = document.createElement("div");
-      t.className = "t";
-      t.textContent = formatClock(m.timestamp);
-      div.append(t);
-      box.append(div);
+      box.append(buildMsgEl(m));
   }
   box.scrollTop = box.scrollHeight;
 }
+
+// Собирает DOM-элемент одного сообщения (используется чатом и окном истории)
+function buildMsgEl(m) {
+  const div = document.createElement("div");
+  div.className = "msg " + (m.sender === "admin" ? "admin" : "user");
+
+  // имя оператора над сообщением
+  if (m.sender === "admin" && m.operatorName) {
+    const nameEl = document.createElement("div");
+    nameEl.className = "op-name";
+    nameEl.textContent = m.operatorName;
+    div.append(nameEl);
+  }
+
+  // фото
+  if (m.image) {
+    const img = document.createElement("img");
+    img.className = "chat-photo";
+    img.src = "data:image/jpeg;base64," + m.image;
+    img.onclick = () => openLightbox(img.src);
+    div.append(img);
+  }
+
+  // текст
+  if (m.text) {
+    const textEl = document.createElement("div");
+    textEl.textContent = m.text;
+    div.append(textEl);
+  }
+
+  const t = document.createElement("div");
+  t.className = "t";
+  t.textContent = formatClock(m.timestamp);
+  div.append(t);
+  return div;
+}
+
+// ================= ПРОШЛЫЕ ОБРАЩЕНИЯ =================
+// Показывает переписку прошлых (закрытых) заявок пользователя — всё,
+// что старше начала текущей заявки. Только для чтения.
+$("btnHistory").onclick = () => {
+  const c = currentChat();
+  if (!c) return;
+  const ticketStart = c.info.ticketStartAt || 0;
+  const old = currentMsgs.filter((m) => ticketStart && m.timestamp && m.timestamp < ticketStart);
+  const body = $("historyBody");
+  body.innerHTML = "";
+  if (old.length === 0) {
+    body.innerHTML = '<div style="color:var(--text2);font-size:14px">' +
+      'Прошлых обращений нет — это первая заявка пользователя.</div>';
+  } else {
+    let lastDay = "";
+    for (const m of old) {
+      const day = formatDay(m.timestamp);
+      if (day && day !== lastDay) {
+        lastDay = day;
+        const sep = document.createElement("div");
+        sep.className = "day-sep";
+        sep.textContent = day;
+        body.append(sep);
+      }
+      body.append(buildMsgEl(m));
+    }
+  }
+  $("historyOverlay").classList.add("show");
+};
+$("btnHistoryClose").onclick = () => $("historyOverlay").classList.remove("show");
 
 // Возврат к списку: кнопка «назад» на мобильном и закрытие заявки
 function closeChatView() {
@@ -1243,9 +1353,6 @@ $("btnToggleStatus").onclick = () => {
       closedBy: auth.currentUser ? auth.currentUser.email : "",
       closedAt: firebase.database.ServerValue.TIMESTAMP,
     });
-    // Закрытая заявка исчезает из панели; если пользователь напишет снова,
-    // сервер откроет НОВУЮ заявку с новым номером и только новым вопросом
-    closeChatView();
   } else {
     rtdb.ref(`supportChats/${c.uid}/info`).update({ status: "open" });
   }
@@ -1279,6 +1386,11 @@ function autoGrow(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + "px";
 }
 $("msgInput").addEventListener("input", function () { autoGrow(this); });
+
+// Раз в минуту обновляем таймеры «⏳ ждёт N мин» и статистику
+setInterval(() => {
+  if (auth.currentUser && $("appScreen").style.display !== "none") renderChatList();
+}, 60000);
 </script>
 </body>
 </html>
