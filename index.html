@@ -363,8 +363,6 @@
       </div>
       <div class="filters">
         <button data-filter="open" class="active">Открытые</button>
-        <button data-filter="closed">Закрытые</button>
-        <button data-filter="all">Все</button>
         <button data-filter="banned">🚫 ЧС</button>
       </div>
       <div class="chat-list" id="chatList">
@@ -485,6 +483,8 @@ let prevTotalUnread = null;
 let myName = "";              // имя оператора
 let templates = [];           // [{key, text}]
 let pendingImageBase64 = null; // фото, ждущее подтверждения отправки
+let currentMsgs = [];         // сообщения выбранного чата (все, без фильтра)
+let renderedTicketStart = 0;  // ticketStartAt, с которым отрисованы сообщения
 
 const DEFAULT_TEMPLATES = [
   "Здравствуйте! 👋 Чем можем помочь?",
@@ -583,6 +583,8 @@ function detachAll() {
   bans = {};
   myName = "";
   prevTotalUnread = null;
+  currentMsgs = [];
+  renderedTicketStart = 0;
 }
 
 // ================= ЧЁРНЫЙ СПИСОК =================
@@ -658,7 +660,13 @@ function attachChats() {
     chats.sort((a, b) => (b.info.lastTimestamp || 0) - (a.info.lastTimestamp || 0));
     renderChatList();
     updateUnreadTitle();
-    if (selectedUid) renderChatHeader();
+    if (selectedUid) {
+      renderChatHeader();
+      // Сервер начал новую заявку (пользователь написал в закрытый чат) —
+      // сразу прячем переписку прошлых обращений
+      const c = currentChat();
+      if (((c && c.info.ticketStartAt) || 0) !== renderedTicketStart) renderMessages();
+    }
   });
 }
 
@@ -675,8 +683,9 @@ $("searchInput").oninput = renderChatList;
 function chatMatchesFilter(c) {
   const status = c.info.status || "open";
   if (currentFilter === "banned") return bans[c.uid] === true;
-  if (currentFilter === "open" && status !== "open") return false;
-  if (currentFilter === "closed" && status !== "closed") return false;
+  // В менеджере только открытые заявки: закрытые остаются лишь в истории
+  // пользователя в приложении, а повторный вопрос придёт новой заявкой
+  if (status !== "open") return false;
   const q = $("searchInput").value.trim().toLowerCase();
   if (q) {
     const hay = ("#" + (c.info.chatNumber || "") + " " + (c.info.userName || "") + " " +
@@ -797,14 +806,29 @@ function selectChat(uid) {
   markRead(uid);
 
   if (messagesRef) messagesRef.off();
+  currentMsgs = [];
   messagesRef = rtdb.ref(`supportChats/${uid}/messages`).limitToLast(500);
   messagesRef.on("value", (snap) => {
     if (uid !== selectedUid) return;
-    const box = $("messages");
-    box.innerHTML = "";
-    let lastDay = "";
-    snap.forEach((child) => {
-      const m = child.val() || {};
+    currentMsgs = [];
+    snap.forEach((child) => { currentMsgs.push(child.val() || {}); });
+    renderMessages();
+    markRead(uid);
+  });
+}
+
+// Рисует только сообщения ТЕКУЩЕЙ заявки: всё, что старше info.ticketStartAt,
+// относится к прошлым закрытым обращениям — они остаются в истории
+// пользователя в приложении, но оператору не показываются
+function renderMessages() {
+  const c = currentChat();
+  const ticketStart = (c && c.info.ticketStartAt) || 0;
+  renderedTicketStart = ticketStart;
+  const box = $("messages");
+  box.innerHTML = "";
+  let lastDay = "";
+  for (const m of currentMsgs) {
+      if (ticketStart && m.timestamp && m.timestamp < ticketStart) continue;
       const day = formatDay(m.timestamp);
       if (day && day !== lastDay) {
         lastDay = day;
@@ -845,18 +869,24 @@ function selectChat(uid) {
       t.textContent = formatClock(m.timestamp);
       div.append(t);
       box.append(div);
-    });
-    box.scrollTop = box.scrollHeight;
-    markRead(uid);
-  });
+  }
+  box.scrollTop = box.scrollHeight;
 }
 
-$("btnBackMobile").onclick = () => {
+// Возврат к списку: кнопка «назад» на мобильном и закрытие заявки
+function closeChatView() {
   $("layout").classList.remove("chat-open");
   selectedUid = null;
   if (messagesRef) { messagesRef.off(); messagesRef = null; }
+  currentMsgs = [];
+  renderedTicketStart = 0;
+  $("chatHeader").style.display = "none";
+  $("messages").style.display = "none";
+  $("composer").style.display = "none";
+  $("chatPlaceholder").style.display = "flex";
   renderChatList();
-};
+}
+$("btnBackMobile").onclick = closeChatView;
 
 function currentChat() {
   return chats.find((c) => c.uid === selectedUid);
@@ -1213,6 +1243,9 @@ $("btnToggleStatus").onclick = () => {
       closedBy: auth.currentUser ? auth.currentUser.email : "",
       closedAt: firebase.database.ServerValue.TIMESTAMP,
     });
+    // Закрытая заявка исчезает из панели; если пользователь напишет снова,
+    // сервер откроет НОВУЮ заявку с новым номером и только новым вопросом
+    closeChatView();
   } else {
     rtdb.ref(`supportChats/${c.uid}/info`).update({ status: "open" });
   }
